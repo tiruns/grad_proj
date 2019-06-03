@@ -83,8 +83,8 @@ class GroupLinear(nn.Module):
         self.groups = groups
         self.channels = channels
         self.map_size = map_size
-        self.linear_nodes = int(map_size * map_size * channels / groups)
-        check = map_size * map_size * channels % groups
+        self.linear_nodes = int(map_size[0] * map_size[1] * channels / groups)
+        check = map_size[0] * map_size[1] * channels % groups
         if check != 0:
             raise Exception('Invalid parameters for GroupLinear')
         self.fc = nn.Linear(self.linear_nodes, self.linear_nodes)
@@ -99,7 +99,7 @@ class GroupLinear(nn.Module):
         x = self.fc(x)
         if self.dropout is not None:
             x = self.dropout(x)
-        x = x.view([x.size()[0], self.channels, self.map_size, self.map_size])
+        x = x.view([x.size()[0], self.channels, self.map_size[0], self.map_size[1]])
         x = f.leaky_relu(x)
         return x
 

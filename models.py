@@ -2,7 +2,6 @@ import torch
 import torch.optim
 import torch.nn as nn
 import torch.nn.functional as f
-import torchvision
 import modules
 
 
@@ -15,7 +14,7 @@ class MaskEncoder(nn.Module):
             modules.DSBlock(32, 64),
             modules.DSBlock(64, 96, dropout=0.1),
             modules.DSBlock(96, 128),
-            modules.GroupLinear(2, 128, 6, dropout=0.2))
+            modules.GroupLinear(2, 128, [5, 4], dropout=0.2))
         return
 
     def forward(self, x):
@@ -44,6 +43,7 @@ class ImageEncoder(nn.Module):
         super(ImageEncoder, self).__init__()
         self.model = nn.Sequential(
             modules.DSBlock(3, 32, batch_norm=False),
+            modules.ResBlock(32),
             modules.DSBlock(32, 64, dropout=0.1),
             modules.ResBlock(64),
             modules.DSBlock(64, 128),
@@ -51,7 +51,7 @@ class ImageEncoder(nn.Module):
             modules.DSBlock(128, 256, dropout=0.1),
             modules.ResBlock(256),
             modules.DSBlock(256, 512),
-            modules.GroupLinear(8, 512, 6, dropout=0.2))
+            modules.GroupLinear(8, 512, [5, 4], dropout=0.2))
         return
 
     def forward(self, x):
@@ -75,6 +75,7 @@ class ImageDecoder(nn.Module):
             modules.USBlock(128 + 64, 64),
             modules.ResBlock(64),
             modules.USBlock(64, 32, dropout=0.1),
+            modules.ResBlock(32),
             modules.USBlock(32, 3, batch_norm=False, use_sigmoid=True))
         return
 
@@ -84,12 +85,12 @@ class ImageDecoder(nn.Module):
         x = self.image_res1(x)
         y = self.mask_us1(y)
 
-        x = torch.cat((x,y), dim=1)
+        x = torch.cat((x, y), dim=1)
         x = self.image_us2(x)
         x = self.image_res2(x)
         y = self.mask_us2(y)
 
-        x = torch.cat((x,y), dim=1)
+        x = torch.cat((x, y), dim=1)
         x = self.merged(x)
 
         return x
@@ -103,8 +104,8 @@ class ImageDiscriminator(nn.Module):
             modules.DSBlock(24, 40, padding=False, dropout=0.1),
             modules.DSBlock(40, 64, padding=False),
             modules.DSBlock(64, 96, padding=False, dropout=0.1),
-            modules.DSBlock(96, 128,padding=False))
-        self.fc1 = nn.Linear(128*5*5, 256)
+            modules.DSBlock(96, 128, padding=False))
+        self.fc1 = nn.Linear(128*4*3, 256)
         self.fc2 = nn.Linear(256, 1)
         pass
 
@@ -117,3 +118,31 @@ class ImageDiscriminator(nn.Module):
         x = torch.sigmoid(x)
         return x
 
+
+class ImageDecoderMin(nn.Module):
+    def __init__(self):
+        super(ImageDecoderMin, self).__init__()
+
+        self.image_us1 = modules.USBlock(512, 256)
+        self.image_res1 = modules.ResBlock(256)
+        self.image_us2 = modules.USBlock(256, 128, dropout=0.1)
+        self.image_res2 = modules.ResBlock(128)
+
+        self.merged = nn.Sequential(
+            modules.USBlock(128, 64),
+            modules.ResBlock(64),
+            modules.USBlock(64, 32, dropout=0.1),
+            modules.ResBlock(32),
+            modules.USBlock(32, 3, batch_norm=False, use_sigmoid=True))
+        return
+
+    def forward(self, x):
+        x = self.image_us1(x)
+        x = self.image_res1(x)
+
+        x = self.image_us2(x)
+        x = self.image_res2(x)
+
+        x = self.merged(x)
+
+        return x

@@ -9,17 +9,17 @@ import utilities
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE = 32
-EPOCHES = 12800
+EPOCHES = 10240
 VALIDATION_INTERVAL = 64
-PREVIEW_INTERVAL = 256
-SAVING_INTERVAL = 1024
+PREVIEW_INTERVAL = 512
+SAVING_INTERVAL = 2048
 OUTPUT_DIR = "../outputs/train_mask_encoder/"
 
 
 class Train:
     def __init__(self):
-        self.samples = mask_generator.MaskSet(640)
-        self.val_samples = mask_generator.MaskSet(32)
+        self.samples = mask_generator.MaskSet(640, mask_size=(160, 128), num_holes=2, size_holes=24, border=32)
+        self.val_samples = mask_generator.MaskSet(32, mask_size=(160, 128), num_holes=2, size_holes=24, border=32)
         self.mask_encoder = models.MaskEncoder().to(DEVICE)
         self.mask_decoder = models.MaskDecoder().to(DEVICE)
 

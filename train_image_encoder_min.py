@@ -16,7 +16,7 @@ VALIDATION_INTERVAL = 16
 PREVIEW_INTERVAL = 128
 SAVING_INTERVAL = 512
 MASK_ENCODER_DIR = "../outputs/train_mask_encoder/"
-OUTPUT_DIR = "../outputs/train_image_encoder/"
+OUTPUT_DIR = "../outputs/train_image_encoder_min/"
 
 
 class Train:
@@ -25,18 +25,14 @@ class Train:
         self.val_images = storage.ImageSet("../datasets/celeba_160_val/", is_uint8=False, require_cwh=True)
         self.masks = mask_generator.MaskSet(320, mask_size=(160, 128), num_holes=2, size_holes=24, border=32)
 
-        self.mask_encoder = models.MaskEncoder().to(DEVICE)
         self.image_encoder = models.ImageEncoder().to(DEVICE)
-        self.image_decoder = models.ImageDecoder().to(DEVICE)
+        self.image_decoder = models.ImageDecoderMin().to(DEVICE)
         self.image_discriminator = models.ImageDiscriminator().to(DEVICE)
 
-        self.mask_encoder.load_state_dict(torch.load(MASK_ENCODER_DIR + "mask_encoder.params"))
         if os.path.exists(OUTPUT_DIR + "image_decoder.params"):
             self.image_encoder.load_state_dict(torch.load(OUTPUT_DIR + "image_encoder.params"))
             self.image_decoder.load_state_dict(torch.load(OUTPUT_DIR + "image_decoder.params"))
             self.image_discriminator.load_state_dict(torch.load(OUTPUT_DIR + "image_discriminator.params"))
-        for param in self.mask_encoder.parameters():
-            param.requires_grad = False
 
         gen_params = list()
         for param in self.image_encoder.parameters():
@@ -82,8 +78,7 @@ class Train:
 
         # dis fake images
         image_features = self.image_encoder(torch.mul(real_images, masks))
-        mask_features = self.mask_encoder(masks)
-        fake_images = self.image_decoder(image_features, mask_features)
+        fake_images = self.image_decoder(image_features)
         fake_quality = self.image_discriminator(fake_images)
 
         self.dis_opti.zero_grad()
@@ -95,8 +90,7 @@ class Train:
         real_images, masks = self.prepare_tensors(BATCH_SIZE)
 
         image_features = self.image_encoder(torch.mul(real_images, masks))
-        mask_features = self.mask_encoder(masks)
-        fake_images = self.image_decoder(image_features, mask_features)
+        fake_images = self.image_decoder(image_features)
         fake_quality = self.image_discriminator(fake_images)
 
         self.gen_bce_opti.zero_grad()
@@ -111,8 +105,7 @@ class Train:
 
         # mse
         image_features = self.image_encoder(torch.mul(real_images, masks))
-        mask_features = self.mask_encoder(masks)
-        fake_images = self.image_decoder(image_features, mask_features)
+        fake_images = self.image_decoder(image_features)
 
         self.gen_mse_opti.zero_grad()
         loss = self.mse_loss(fake_images, real_images)
@@ -125,8 +118,7 @@ class Train:
         real_images, masks = self.prepare_tensors(BATCH_SIZE, is_train=False)
 
         image_features = self.image_encoder(torch.mul(real_images, masks))
-        mask_features = self.mask_encoder(masks)
-        fake_images = self.image_decoder(image_features, mask_features)
+        fake_images = self.image_decoder(image_features)
         fake_quality = self.image_discriminator(fake_images)
         real_quality = self.image_discriminator(real_images)
 
@@ -157,8 +149,7 @@ class Train:
         real_images, masks = self.prepare_tensors(2, is_train=False)
         masked_images = torch.mul(real_images, masks)
         image_features = self.image_encoder(masked_images)
-        mask_features = self.mask_encoder(masks)
-        fake_images = self.image_decoder(image_features, mask_features)
+        fake_images = self.image_decoder(image_features)
 
         rows, cols = 2, 3
         fig, axs = plt.subplots(rows, cols)
@@ -181,7 +172,6 @@ class Train:
         if not os.path.exists(OUTPUT_DIR):
             os.mkdir(OUTPUT_DIR)
 
-        self.mask_encoder.eval()
         self.image_encoder.train()
         self.image_decoder.train()
         self.image_discriminator.train()
